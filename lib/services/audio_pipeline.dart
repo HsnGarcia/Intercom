@@ -32,6 +32,8 @@ class AudioPipeline {
       return result ?? {'connected': false, 'deviceName': null};
     } on PlatformException catch (e) {
       return {'connected': false, 'error': e.message};
+    } catch (e) {
+      return {'connected': false, 'error': e.toString()};
     }
   }
 
