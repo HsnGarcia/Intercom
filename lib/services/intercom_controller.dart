@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -129,6 +130,12 @@ class IntercomController extends ChangeNotifier {
   }
 
   Future<bool> _requestRequiredPermissions() async {
+    if (Platform.isIOS) {
+      // En iOS, AVAudioSession y MultipeerConnectivity solicitan nativamente
+      // Micrófono, Bluetooth y Red Local sin depender de macros de Podfile.
+      return true;
+    }
+
     final statuses = await [
       Permission.microphone,
       Permission.bluetoothScan,

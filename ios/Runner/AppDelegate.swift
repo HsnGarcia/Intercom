@@ -21,7 +21,9 @@ import NetworkExtension
         guard let self = self else { return }
         switch call.method {
         case "startHelmetSco":
-          result(self.helmetAudioManager.startHelmetSco())
+          self.helmetAudioManager.requestMicAndStartHelmetSco { info in
+            result(info)
+          }
         case "stopHelmetSco":
           self.helmetAudioManager.stopHelmetSco()
           result(nil)
@@ -154,6 +156,29 @@ final class HelmetAudioManager: NSObject {
 
     func setMeshEventSink(_ sink: FlutterEventSink?) {
         meshEventSink = sink
+    }
+
+    func requestMicAndStartHelmetSco(completion: @escaping ([String: Any]) -> Void) {
+        let session = AVAudioSession.sharedInstance()
+        switch session.recordPermission {
+        case .granted:
+            completion(startHelmetSco())
+        case .denied:
+            completion(["connected": false, "error": "Permiso de micrófono denegado en Ajustes"])
+        case .undetermined:
+            session.requestRecordPermission { [weak self] granted in
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+                    if granted {
+                        completion(self.startHelmetSco())
+                    } else {
+                        completion(["connected": false, "error": "Permiso de micrófono requerido"])
+                    }
+                }
+            }
+        @unknown default:
+            completion(startHelmetSco())
+        }
     }
 
     func startHelmetSco() -> [String: Any] {
