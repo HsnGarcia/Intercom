@@ -17,7 +17,7 @@ class AudioPipeline {
   DateTime _lastVoiceDetectedAt = DateTime.fromMillisecondsSinceEpoch(0);
   final Duration voxHangover = const Duration(milliseconds: 450);
 
-  double voxThreshold = 0.18;
+  double voxThreshold = 0.04;
   bool isMuted = false;
   bool isDeafened = false;
 

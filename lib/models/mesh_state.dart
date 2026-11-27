@@ -34,7 +34,7 @@ class MeshState {
     this.isLocalMuted = false,
     this.isDeafened = false,
     this.isSpeakingNow = false,
-    this.voxThreshold = 0.18,
+    this.voxThreshold = 0.04,
     this.statusMessage,
   });
 

@@ -136,6 +136,10 @@ final class HelmetAudioManager: NSObject {
         channels: 1,
         interleaved: true
     )!
+    private let playbackFormat = AVAudioFormat(
+        standardFormatWithSampleRate: 16000,
+        channels: 1
+    )!
 
     private var micEventSink: FlutterEventSink?
     private var meshEventSink: FlutterEventSink?
@@ -188,7 +192,7 @@ final class HelmetAudioManager: NSObject {
             try session.setCategory(
                 .playAndRecord,
                 mode: .voiceChat,
-                options: [.allowBluetooth, .allowBluetoothA2DP]
+                options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker]
             )
             try session.setPreferredSampleRate(16000)
             try session.setActive(true)
@@ -224,7 +228,7 @@ final class HelmetAudioManager: NSObject {
         if !audioEngine.attachedNodes.contains(playerNode) {
             audioEngine.attach(playerNode)
         }
-        audioEngine.connect(playerNode, to: audioEngine.mainMixerNode, format: targetFormat)
+        audioEngine.connect(playerNode, to: audioEngine.mainMixerNode, format: playbackFormat)
 
         guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
             return
@@ -279,16 +283,22 @@ final class HelmetAudioManager: NSObject {
 
     func playPcmFrame(_ data: Data) {
         if !isCapturing || data.count < 2 { return }
-        let frameCount = AVAudioFrameCount(data.count / MemoryLayout<Int16>.size)
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCount) else {
+        let sampleCount = data.count / MemoryLayout<Int16>.size
+        let frameCount = AVAudioFrameCount(sampleCount)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: playbackFormat, frameCapacity: frameCount) else {
             return
         }
         buffer.frameLength = frameCount
-        if let dst = buffer.int16ChannelData {
+        if let dst = buffer.floatChannelData {
             data.withUnsafeBytes { rawPtr in
                 if let src = rawPtr.bindMemory(to: Int16.self).baseAddress {
-                    dst[0].update(from: src, count: Int(frameCount))
+                    for i in 0..<sampleCount {
+                        dst[0][i] = Float(src[i]) / 32768.0
+                    }
                 }
+            }
+            if !playerNode.isPlaying {
+                playerNode.play()
             }
             playerNode.scheduleBuffer(buffer, completionHandler: nil)
         }
@@ -392,9 +402,13 @@ extension HelmetAudioManager: MCNearbyServiceAdvertiserDelegate {
 
 extension HelmetAudioManager: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String: String]?) {
-        guard let session = mcSession else { return }
+        guard let session = mcSession, let myPeer = myPeerId else { return }
         if info?["group"] == activeGroupCode {
-            browser.invitePeer(peerID, to: session, withContext: nil, timeout: 10)
+            if session.connectedPeers.contains(peerID) { return }
+            // Evitar colisión si ambos iPhones se invitan al mismo tiempo
+            if myPeer.displayName <= peerID.displayName {
+                browser.invitePeer(peerID, to: session, withContext: nil, timeout: 15)
+            }
         }
     }
 

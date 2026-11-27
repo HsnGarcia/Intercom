@@ -159,10 +159,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     Slider(
-                      value: state.voxThreshold,
-                      min: 0.05,
-                      max: 0.55,
-                      divisions: 10,
+                      value: state.voxThreshold.clamp(0.01, 0.30),
+                      min: 0.01,
+                      max: 0.30,
+                      divisions: 15,
                       label:
                           'Umbral ${(state.voxThreshold * 100).round()}%',
                       onChanged: controller.updateVoxThreshold,
